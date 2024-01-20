@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,119 +19,174 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 )
 
+// Structure of the job configuration for this specific module
+type JobConfigEbsSnapshot struct {
+	Module          string `koanf:"module"`
+	Enabled         bool   `koanf:"enabled"`
+	DryRun          bool   `koanf:"dryrun"`
+	Retention       int64  `koanf:"retention"`
+	AwsRegion       string `koanf:"aws_region"`
+	AccessKeyId     string `koanf:"accesskey_id"`
+	AccessKeySecret string `koanf:"accesskey_secret"`
+	InstanceId      string `koanf:"instance_id"`
+	InstanceTag     string `koanf:"instance_tag"`
+	VolumeTag       string `koanf:"volume_tag"`
+}
+
 type backup_ebs_snapshot struct {
-	config  map[string]string
+	config  JobConfigEbsSnapshot
 	cfg     aws.Config
 	client  *ec2.Client
 	volumes []ProviderAwsEbsVolume
 }
 
-func (b *backup_ebs_snapshot) LoadConfiguration(config map[string]string) error {
-	b.config = config
+var validateConfigJobdef = []ConfigEntryValidation{
+	{
+		entryname:  "module",
+		entrytype:  "string",
+		mandatory:  true,
+		allowedval: "ebs-snapshot",
+	},
+	{
+		entryname:  "enabled",
+		entrytype:  "bool",
+		mandatory:  false,
+		defaultval: "true",
+		allowedval: "true,false",
+	},
+	{
+		entryname:  "aws_region",
+		entrytype:  "string",
+		mandatory:  true,
+		allowedval: "",
+	},
+	{
+		entryname:  "dryrun",
+		entrytype:  "bool",
+		mandatory:  false,
+		defaultval: "false",
+		allowedval: "true,false",
+	},
+	{
+		entryname:  "retention",
+		entrytype:  "int",
+		mandatory:  false,
+		defaultval: "30",
+		allowedval: "",
+	},
+	{
+		entryname:  "accesskey_id",
+		entrytype:  "string",
+		mandatory:  false,
+		defaultval: "",
+		allowedval: "",
+	},
+	{
+		entryname:  "accesskey_secret",
+		entrytype:  "string",
+		mandatory:  false,
+		defaultval: "",
+		allowedval: "",
+	},
+	{
+		entryname:  "instance_id",
+		entrytype:  "string",
+		mandatory:  false,
+		defaultval: "",
+		allowedval: "",
+	},
+	{
+		entryname:  "instance_tag",
+		entrytype:  "string",
+		mandatory:  false,
+		defaultval: "",
+		allowedval: "",
+	},
+	{
+		entryname:  "volume_tag",
+		entrytype:  "string",
+		mandatory:  false,
+		defaultval: "",
+		allowedval: "",
+	},
+}
+
+func (b *backup_ebs_snapshot) LoadConfiguration(jobname string) error {
+
+	// Original job config before validation and defaults
+	var origconf JobConfigEbsSnapshot
+
+	// Path of the job config section relative to the root of the config file
+	jobpath := fmt.Sprintf("jobs.%s", jobname)
+
+	slog.Debugf("Getting original job configuration (before validation and defaults) ...")
+
+	if err := kconfig.Unmarshal(jobpath, &origconf); err != nil {
+		return fmt.Errorf("failed to unmarshal path %s: %v", jobpath, err)
+	}
 
 	slog.Debugf("Dump of the initial configuration:")
-	for key, val := range b.config {
-		slog.Debugf("- %s=\"%s\"", key, val)
-	}
+	slog.Debugf("- Module=\"%v\"", origconf.Module)
+	slog.Debugf("- Enabled=%v", origconf.Enabled)
+	slog.Debugf("- DryRun=%v", origconf.DryRun)
+	slog.Debugf("- Retention=%v", origconf.Retention)
+	slog.Debugf("- AwsRegion=\"%v\"", origconf.AwsRegion)
+	slog.Debugf("- AccessKeyId=\"%v\"", origconf.AccessKeyId)
+	slog.Debugf("- AccessKeySecret=\"%v\"", origconf.AccessKeySecret)
+	slog.Debugf("- InstanceId=\"%v\"", origconf.InstanceId)
+	slog.Debugf("- InstanceTag=\"%v\"", origconf.InstanceTag)
+	slog.Debugf("- VolumeTag=\"%v\"", origconf.VolumeTag)
 
-	// Validate specific fields in the job configuration section
-	validateConfigJobdef := []ConfigEntryValidation{
-		{
-			entryname:  "module",
-			mandatory:  true,
-			allowedval: "ebs-snapshot",
-		},
-		{
-			entryname:  "enabled",
-			mandatory:  false,
-			defaultval: "true",
-			allowedval: "true,false",
-		},
-		{
-			entryname:  "aws_region",
-			mandatory:  true,
-			allowedval: "",
-		},
-		{
-			entryname:  "dryrun",
-			mandatory:  false,
-			defaultval: "false",
-			allowedval: "true,false",
-		},
-		{
-			entryname:  "retention",
-			mandatory:  false,
-			defaultval: "30",
-			allowedval: "",
-		},
-		{
-			entryname:  "accesskey_id",
-			mandatory:  false,
-			defaultval: "",
-			allowedval: "",
-		},
-		{
-			entryname:  "accesskey_secret",
-			mandatory:  false,
-			defaultval: "",
-			allowedval: "",
-		},
-		{
-			entryname:  "instance_id",
-			mandatory:  false,
-			defaultval: "",
-			allowedval: "",
-		},
-		{
-			entryname:  "instance_tag",
-			mandatory:  false,
-			defaultval: "",
-			allowedval: "",
-		},
-		{
-			entryname:  "volume_tag",
-			mandatory:  false,
-			defaultval: "",
-			allowedval: "",
-		},
-	}
+	slog.Debugf("Validating the job configuration and setting default values ...")
 
-	slog.Debugf("Validating the job configuration ...")
-	err := validateConfigMap(b.config, validateConfigJobdef)
-	if err != nil {
+	if err := configValidateAndSetDefaults(jobpath, validateConfigJobdef); err != nil {
 		return fmt.Errorf("failed to validate job configuration: %w", err)
 	}
 
-	if b.config["instance_id"] != "" {
-		matched, _ := regexp.MatchString("^(local|i-[a-z0-9]{17})$", b.config["instance_id"])
+	slog.Debugf("Getting processed job configuration (after validation and defaults) ...")
+
+	if err := kconfig.Unmarshal(jobpath, &b.config); err != nil {
+		return fmt.Errorf("failed to unmarshal path %s: %v", jobpath, err)
+	}
+
+	slog.Debugf("Advanced validation of the job configuration ...")
+
+	if b.config.InstanceId != "" {
+		matched, _ := regexp.MatchString("^(local|i-[a-z0-9]{17})$", b.config.InstanceId)
 		if matched == false {
 			return fmt.Errorf("Option \"instance_id\" must be either \"local\" or in the \"i-0123456789abcdef0\" format")
 		}
 	}
 
-	if b.config["instance_tag"] != "" {
-		matched, _ := regexp.MatchString("^[A-Za-z0-9_-]+=[A-Za-z0-9_-]+$", b.config["instance_tag"])
+	if b.config.InstanceTag != "" {
+		matched, _ := regexp.MatchString("^[A-Za-z0-9_-]+=[A-Za-z0-9_-]+$", b.config.InstanceTag)
 		if matched == false {
 			return fmt.Errorf("Option \"instance_tag\" must be in the \"TagName=TagValue\" format")
 		}
 	}
 
-	if b.config["volume_tag"] != "" {
-		matched, _ := regexp.MatchString("^[A-Za-z0-9_-]+=[A-Za-z0-9_-]+$", b.config["volume_tag"])
+	if b.config.VolumeTag != "" {
+		matched, _ := regexp.MatchString("^[A-Za-z0-9_-]+=[A-Za-z0-9_-]+$", b.config.VolumeTag)
 		if matched == false {
 			return fmt.Errorf("Option \"volume_tag\" must be in the \"TagName=TagValue\" format")
 		}
 	}
 
-	retention, err := strconv.ParseInt(b.config["retention"], 10, 64)
-	if err != nil || retention <= 0 {
+	if b.config.Retention <= 0 {
 		return fmt.Errorf("Option \"retention\" must be a valid number greater than 0")
 	}
 
 	slog.Debugf("Dump of the processed configuration:")
-	for key, val := range b.config {
-		slog.Debugf("- %s=\"%s\"", key, val)
-	}
+	slog.Debugf("- Module=\"%v\"", b.config.Module)
+	slog.Debugf("- Enabled=%v", b.config.Enabled)
+	slog.Debugf("- DryRun=%v", b.config.DryRun)
+	slog.Debugf("- Retention=%v", b.config.Retention)
+	slog.Debugf("- AwsRegion=\"%v\"", b.config.AwsRegion)
+	slog.Debugf("- AccessKeyId=\"%v\"", b.config.AccessKeyId)
+	slog.Debugf("- AccessKeySecret=\"%v\"", b.config.AccessKeySecret)
+	slog.Debugf("- InstanceId=\"%v\"", b.config.InstanceId)
+	slog.Debugf("- InstanceTag=\"%v\"", b.config.InstanceTag)
+	slog.Debugf("- VolumeTag=\"%v\"", b.config.VolumeTag)
 
 	return nil
 }
@@ -142,19 +196,19 @@ func (b *backup_ebs_snapshot) InitialiseModule() error {
 	var err error
 
 	// Load the configuration using an access key pair if it has been provided in the configuration
-	b.cfg, err = ProviderAwsLoadConfig(b.config["aws_region"], b.config["accesskey_id"], b.config["accesskey_secret"])
+	b.cfg, err = ProviderAwsLoadConfig(b.config.AwsRegion, b.config.AccessKeyId, b.config.AccessKeySecret)
 	if err != nil {
 		return fmt.Errorf("%w", err)
 	}
 
 	// Dynamically determine the EC2 Instance ID if requested in the configuration
-	if b.config["instance_id"] == "local" {
+	if b.config.InstanceId == "local" {
 		slog.Debugf("Trying to detect the instance ID of the local instance ...")
-		b.config["instance_id"], err = ProviderAwsGetCurrentInstance(b.cfg)
+		b.config.InstanceId, err = ProviderAwsGetCurrentInstance(b.cfg)
 		if err != nil {
 			return fmt.Errorf("failed to detect the instance ID of the local instance: %w", err)
 		}
-		slog.Debugf("Have detected the instance ID of the local instance as %s", b.config["instance_id"])
+		slog.Debugf("Have detected the instance ID of the local instance as %s", b.config.InstanceId)
 	}
 
 	// Create a client
@@ -175,8 +229,8 @@ func (b *backup_ebs_snapshot) findRelevantVolumes() error {
 	var voltagkey, voltagval string
 
 	// Parse "instance_tag" option
-	if b.config["instance_tag"] != "" {
-		insttag := strings.Split(b.config["instance_tag"], "=")
+	if b.config.InstanceTag != "" {
+		insttag := strings.Split(b.config.InstanceTag, "=")
 		if len(insttag) == 2 {
 			insttagkey = insttag[0]
 			insttagval = insttag[1]
@@ -184,8 +238,8 @@ func (b *backup_ebs_snapshot) findRelevantVolumes() error {
 	}
 
 	// Parse "volume_tag" option
-	if b.config["volume_tag"] != "" {
-		insttag := strings.Split(b.config["volume_tag"], "=")
+	if b.config.VolumeTag != "" {
+		insttag := strings.Split(b.config.VolumeTag, "=")
 		if len(insttag) == 2 {
 			voltagkey = insttag[0]
 			voltagval = insttag[1]
@@ -194,8 +248,8 @@ func (b *backup_ebs_snapshot) findRelevantVolumes() error {
 
 	// Get list of instances that match the conditions specified
 	slog.Debugf("Listing instances based on instance_id=\"%s\" and instance_tag_key=\"%s\" and instance_tag_val=\"%s\" ...",
-		b.config["instance_id"], insttagkey, insttagval)
-	instances, err := ProviderAwsGetEc2Instances(b.client, b.config["instance_id"], insttagkey, insttagval)
+		b.config.InstanceId, insttagkey, insttagval)
+	instances, err := ProviderAwsGetEc2Instances(b.client, b.config.InstanceId, insttagkey, insttagval)
 	if err != nil {
 		return fmt.Errorf("%w", err)
 	}
@@ -241,7 +295,7 @@ func (b *backup_ebs_snapshot) CreateBackup() error {
 		snapname := fmt.Sprintf("%s-%s", basename, curtime.Format(time.RFC3339))
 		snapdate := fmt.Sprintf("%04d%02d%02d", curtime.Year(), curtime.Month(), curtime.Day())
 		snaptime := fmt.Sprintf("%v", curtime.Unix())
-		if b.config["dryrun"] == "false" {
+		if b.config.DryRun == false {
 			snapshotId, err := ProviderAwsCreateEbsSnapshot(b.client, curvol.volumeId, snapname, snapdate, snaptime)
 			if err != nil {
 				return fmt.Errorf("%w", err)
@@ -295,7 +349,7 @@ func (b *backup_ebs_snapshot) ListBackups() ([]BackupItem, error) {
 
 func (b *backup_ebs_snapshot) DeleteOldBackups(bkpitems []BackupItem) error {
 
-	retention, _ := strconv.ParseInt(b.config["retention"], 10, 64)
+	retention := b.config.Retention
 	curtime := time.Now().Unix()
 
 	for _, item := range bkpitems {
@@ -304,7 +358,7 @@ func (b *backup_ebs_snapshot) DeleteOldBackups(bkpitems []BackupItem) error {
 		slog.Debugf("Considering deletion of snapshot: id=\"%s\" desc=\"%s\" age=%v retention=%v ...",
 			item.identifier, item.description, snapshotAge, retention)
 		if snapDelete == true {
-			if b.config["dryrun"] == "false" {
+			if b.config.DryRun == false {
 				err := ProviderAwsDeleteEbsSnapshot(b.client, item.identifier)
 				if err != nil {
 					return fmt.Errorf("%w", err)
