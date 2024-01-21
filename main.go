@@ -16,7 +16,7 @@ import (
 	"github.com/gookit/slog"
 )
 
-const progversion = "0.1.1"
+const progversion = "0.1.2-dev"
 
 const (
 	ExitStatusSuccessfulExecution  = 0
