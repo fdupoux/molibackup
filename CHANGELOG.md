@@ -1,6 +1,6 @@
 # ChangeLog
 
-## 0.1.1 (YYYY-MM-DD):
+## 0.1.1 (2024-01-21):
 
 * Using module koanf to read and parse the yaml configuration file
 * Instances and volumes can be filtered using more than one tag with a new syntax
