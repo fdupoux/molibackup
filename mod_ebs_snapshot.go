@@ -21,7 +21,7 @@ import (
 // Structure of the job configuration for this specific module
 type JobConfigEbsSnapshot struct {
 	Module          string `koanf:"module"`
-	Enabled         bool   `koanf:"enabled"`
+	Enabled         any    `koanf:"enabled"`
 	DryRun          bool   `koanf:"dryrun"`
 	Retention       int64  `koanf:"retention"`
 	AwsRegion       string `koanf:"aws_region"`
@@ -48,7 +48,7 @@ var validateConfigJobdef = []ConfigEntryValidation{
 	},
 	{
 		entryname:  "enabled",
-		entrytype:  "bool",
+		entrytype:  "",
 		mandatory:  false,
 		defaultval: "true",
 		allowedval: []string{"true", "false"},

@@ -31,7 +31,7 @@ type ProgramConfig struct {
 // Job attributes which are common to all job configs
 type JobMetaConfig struct {
 	Module    string `koanf:"module"`
-	Enabled   bool   `koanf:"enabled"`
+	Enabled   any    `koanf:"enabled"`
 	DryRun    bool   `koanf:"dryrun"`
 	Retention int    `koanf:"retention"`
 }
@@ -125,6 +125,7 @@ func readConfiguration(configfile string) error {
 		return fmt.Errorf("failed to unmarshal the configuration file: %v", err)
 	}
 
+	// Parse job specific sections of the config
 	jobmetadefs = make(map[string]JobMetaConfig)
 	for jobname, _ := range progconfig.Jobsdef {
 		var jobconf JobMetaConfig
