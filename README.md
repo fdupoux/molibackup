@@ -254,3 +254,39 @@ ec2:DescribeVolumes
 ec2:DescribeTags
 ec2:ResetSnapshotAttribute
 ```
+
+### Example of output
+Here is an example of what this backup module does when it is configured to manage snapshots
+of three EBS volumes with a retention of five days. It first creates a new snapshot of each
+volume, then check how old each existing snapshot for these volumes are, and delete these
+which are more than five days old:
+```
+[2024/01/21T02:00:01.416] [INFO] molibackup version 0.1.0 built with go1.20.13 starting ...
+[2024/01/21T02:00:01.420] [INFO] Found configuration file in /etc/molibackup/molibackup-test.yaml
+[2024/01/21T02:00:01.422] [INFO] Running job "job01_websrv" ...
+[2024/01/21T02:00:04.651] [INFO] Successfully created snapshot "snap-0018972b533274049" of volume "vol-03774e949840089cb"
+[2024/01/21T02:00:05.246] [INFO] Successfully created snapshot "snap-0ff55e42f3d90ac21" of volume "vol-02efc43a09fff36eb"
+[2024/01/21T02:00:05.789] [INFO] Successfully created snapshot "snap-0e00e1692d53abf05" of volume "vol-00215de836256ae7b"
+[2024/01/21T02:00:07.303] [INFO] Deleted snapshot: id="snap-01376e71c9d7c6263" desc="zl-websrv-t01-root-2024-01-15T02:00:05Z" age=6 retention=5
+[2024/01/21T02:00:07.303] [INFO] Keeping snapshot: id="snap-000b60f2b6bef27b8" desc="zl-websrv-t01-root-2024-01-16T02:00:04Z" age=5 retention=5
+[2024/01/21T02:00:07.303] [INFO] Keeping snapshot: id="snap-039eb38549ee363a1" desc="zl-websrv-t01-root-2024-01-17T02:00:05Z" age=4 retention=5
+[2024/01/21T02:00:07.303] [INFO] Keeping snapshot: id="snap-055d813b7b4e5429c" desc="zl-websrv-t01-root-2024-01-18T02:00:05Z" age=3 retention=5
+[2024/01/21T02:00:07.303] [INFO] Keeping snapshot: id="snap-062e5b24ff9ea53e3" desc="zl-websrv-t01-root-2024-01-19T02:00:06Z" age=2 retention=5
+[2024/01/21T02:00:07.303] [INFO] Keeping snapshot: id="snap-010d48fa1e4029bce" desc="zl-websrv-t01-root-2024-01-20T02:00:05Z" age=1 retention=5
+[2024/01/21T02:00:07.303] [INFO] Keeping snapshot: id="snap-0e00e1692d53abf05" desc="zl-websrv-t01-root-2024-01-21T02:00:05Z" age=0 retention=5
+[2024/01/21T02:00:07.766] [INFO] Deleted snapshot: id="snap-04adb311055e76c9d" desc="zl-websrv-t02-data-2024-01-15T02:00:04Z" age=6 retention=5
+[2024/01/21T02:00:07.766] [INFO] Keeping snapshot: id="snap-0f5dec4ee66d7bd3f" desc="zl-websrv-t02-data-2024-01-16T02:00:04Z" age=5 retention=5
+[2024/01/21T02:00:07.766] [INFO] Keeping snapshot: id="snap-0a2b5973086091a2d" desc="zl-websrv-t02-data-2024-01-17T02:00:04Z" age=4 retention=5
+[2024/01/21T02:00:07.766] [INFO] Keeping snapshot: id="snap-092da8f934d4bddd1" desc="zl-websrv-t02-data-2024-01-18T02:00:04Z" age=3 retention=5
+[2024/01/21T02:00:07.766] [INFO] Keeping snapshot: id="snap-0435d629492b909a0" desc="zl-websrv-t02-data-2024-01-19T02:00:05Z" age=2 retention=5
+[2024/01/21T02:00:07.766] [INFO] Keeping snapshot: id="snap-0ece3d4d950c2f619" desc="zl-websrv-t02-data-2024-01-20T02:00:05Z" age=1 retention=5
+[2024/01/21T02:00:07.766] [INFO] Keeping snapshot: id="snap-0ff55e42f3d90ac21" desc="zl-websrv-t02-data-2024-01-21T02:00:04Z" age=0 retention=5
+[2024/01/21T02:00:08.202] [INFO] Deleted snapshot: id="snap-092f130a665de656a" desc="zl-websrv-t02-root-2024-01-15T02:00:04Z" age=6 retention=5
+[2024/01/21T02:00:08.202] [INFO] Keeping snapshot: id="snap-0a2728fefbb2d5495" desc="zl-websrv-t02-root-2024-01-16T02:00:03Z" age=5 retention=5
+[2024/01/21T02:00:08.202] [INFO] Keeping snapshot: id="snap-0c450b683af663fa4" desc="zl-websrv-t02-root-2024-01-17T02:00:04Z" age=4 retention=5
+[2024/01/21T02:00:08.202] [INFO] Keeping snapshot: id="snap-046e47186af834f09" desc="zl-websrv-t02-root-2024-01-18T02:00:03Z" age=3 retention=5
+[2024/01/21T02:00:08.202] [INFO] Keeping snapshot: id="snap-0fd788321738b9ca3" desc="zl-websrv-t02-root-2024-01-19T02:00:05Z" age=2 retention=5
+[2024/01/21T02:00:08.202] [INFO] Keeping snapshot: id="snap-0d0438e486b97f5f6" desc="zl-websrv-t02-root-2024-01-20T02:00:04Z" age=1 retention=5
+[2024/01/21T02:00:08.202] [INFO] Keeping snapshot: id="snap-0018972b533274049" desc="zl-websrv-t02-root-2024-01-21T02:00:04Z" age=0 retention=5
+[2024/01/21T02:00:08.202] [INFO] Have successfully executed 1 jobs
+```
