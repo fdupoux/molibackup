@@ -89,7 +89,8 @@ func main() {
 	// Execute all jobs defined in the configuration
 	for _, jobname := range jobnames {
 		jobconfig := jobmetadefs[jobname]
-		if jobconfig.Enabled == true {
+		jobenabled := fmt.Sprintf("%v", jobconfig.Enabled)
+		if jobenabled != "false" {
 			slog.Infof("Running job \"%s\" ...", jobname)
 			err = runJob(jobname)
 			if err != nil {
