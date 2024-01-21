@@ -42,7 +42,18 @@ type ConfigEntryValidation struct {
 	entrytype  string
 	mandatory  bool
 	defaultval string
-	allowedval string
+	allowedval []string
+}
+
+// Rules to validate the global section of the config file
+var validateConfigGlobal = []ConfigEntryValidation{
+	{
+		entryname:  "loglevel",
+		entrytype:  "string",
+		mandatory:  false,
+		defaultval: "info",
+		allowedval: []string{"error", "warn", "info", "debug"},
+	},
 }
 
 var kconfig = koanf.New(".")
@@ -104,9 +115,14 @@ func readConfiguration(configfile string) error {
 		return fmt.Errorf("failed to read configuration file %s: %v", configPath, err)
 	}
 
+	err = configValidateAndSetDefaults("global", validateConfigGlobal)
+	if err != nil {
+		return fmt.Errorf("failed to validate the global config section: %w", err)
+	}
+
 	// Parse the whole configuration file
 	if err := kconfig.Unmarshal("", &progconfig); err != nil {
-		return fmt.Errorf("failed to unmarshal the whole configuration: %v", err)
+		return fmt.Errorf("failed to unmarshal the configuration file: %v", err)
 	}
 
 	jobmetadefs = make(map[string]JobMetaConfig)
@@ -117,20 +133,6 @@ func readConfiguration(configfile string) error {
 			return fmt.Errorf("failed to unmarshal path %s: %v", cfgpath, err)
 		}
 		jobmetadefs[jobname] = jobconf
-	}
-
-	validateConfigGlobal := []ConfigEntryValidation{
-		{
-			entryname:  "loglevel",
-			entrytype:  "string",
-			mandatory:  false,
-			defaultval: "info",
-			allowedval: "error,warn,info,debug",
-		},
-	}
-	err = configValidateAndSetDefaults("global", validateConfigGlobal)
-	if err != nil {
-		return fmt.Errorf("failed to validate the global config section: %w", err)
 	}
 
 	// Make sure all job configuration sections have a "module" entry
@@ -165,11 +167,6 @@ func configValidateAndSetDefaults(configpath string, validation []ConfigEntryVal
 	// Make sure all validation rules are met for all entries in the map
 	for _, entry := range validation {
 		knownEntries = append(knownEntries, entry.entryname)
-		// Get list of valid values for the current entry
-		var allowedval []string
-		if entry.allowedval != "" {
-			allowedval = strings.Split(entry.allowedval, ",")
-		}
 		// Make sure the entry does not have invalid values and meets all conditions
 		entryval, hasentry := configmap[entry.entryname]
 		if hasentry == true {
@@ -181,8 +178,8 @@ func configValidateAndSetDefaults(configpath string, validation []ConfigEntryVal
 			}
 			// Make sure the entry is set to a value which is allowed if there are restrictions
 			entryvalstr := fmt.Sprintf("%v", entryval)
-			if (len(allowedval) > 0) && (slices.Contains(allowedval, entryvalstr) == false) {
-				return fmt.Errorf("value '%v' is invalid for configuration entry \"%s\" as it must be one of %v", entryval, entry.entryname, allowedval)
+			if (entry.allowedval != nil) && (slices.Contains(entry.allowedval, entryvalstr) == false) {
+				return fmt.Errorf("value \"%v\" is invalid for configuration entry \"%s\" as it must be one of %v", entryval, entry.entryname, entry.allowedval)
 			}
 		} else {
 			if entry.mandatory == true {
