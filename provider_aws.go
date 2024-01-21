@@ -92,7 +92,7 @@ func ProviderAwsGetCurrentInstance(cfg aws.Config) (string, error) {
 }
 
 // Return basic information about all instances that match conditions specified in the arguments
-func ProviderAwsGetEc2Instances(client *ec2.Client, instanceId string, instanceTagKey string, instanceTagVal string) ([]ProviderAwsEc2Instance, error) {
+func ProviderAwsGetEc2Instances(client *ec2.Client, instanceId string, instanceTags map[string]string) ([]ProviderAwsEc2Instance, error) {
 
 	var results []ProviderAwsEc2Instance
 	var params *ec2.DescribeInstancesInput
@@ -109,10 +109,10 @@ func ProviderAwsGetEc2Instances(client *ec2.Client, instanceId string, instanceT
 		filtcnt++
 	}
 
-	if instanceTagKey != "" {
+	for tagkey, _ := range instanceTags {
 		curfilter := types.Filter{
 			Name:   aws.String("tag-key"),
-			Values: []string{instanceTagKey},
+			Values: []string{tagkey},
 		}
 		filters = append(filters, curfilter)
 		filtcnt++
@@ -131,8 +131,16 @@ func ProviderAwsGetEc2Instances(client *ec2.Client, instanceId string, instanceT
 			for _, curtag := range instance.Tags {
 				tagsdict[*curtag.Key] = *curtag.Value
 			}
-			// Add instance to results if not filtering by tag or the tag value matches
-			if (instanceTagKey == "") || (tagsdict[instanceTagKey] == instanceTagVal) {
+			// Check if all tags specified in instance_tags match
+			tagsmatch := true
+			for tagkey, tagval := range instanceTags {
+				val, ok := tagsdict[tagkey]
+				if (ok == false) || (val != tagval) {
+					tagsmatch = false
+				}
+			}
+			// Add instance to the results if all the tags required match
+			if tagsmatch == true {
 				instdata := ProviderAwsEc2Instance{}
 				instdata.instanceId = string(*instance.InstanceId)
 				instdata.instanceName = string(tagsdict["Name"])
@@ -147,7 +155,7 @@ func ProviderAwsGetEc2Instances(client *ec2.Client, instanceId string, instanceT
 }
 
 // Return basic information about all volumes that match conditions specified in the arguments
-func ProviderAwsGetEbsVolumes(client *ec2.Client, instanceId string, volumeTagKey string, volumeTagVal string) ([]ProviderAwsEbsVolume, error) {
+func ProviderAwsGetEbsVolumes(client *ec2.Client, instanceId string, volumeTags map[string]string) ([]ProviderAwsEbsVolume, error) {
 
 	var results []ProviderAwsEbsVolume
 
@@ -175,8 +183,16 @@ func ProviderAwsGetEbsVolumes(client *ec2.Client, instanceId string, volumeTagKe
 		for _, curtag := range volume.Tags {
 			tagsdict[*curtag.Key] = *curtag.Value
 		}
-		// Add volume to results if not filtering by tag or the tag value matches
-		if (volumeTagKey == "") || (tagsdict[volumeTagKey] == volumeTagVal) {
+		// Check if all tags specified in volume_tags match
+		tagsmatch := true
+		for tagkey, tagval := range volumeTags {
+			val, ok := tagsdict[tagkey]
+			if (ok == false) || (val != tagval) {
+				tagsmatch = false
+			}
+		}
+		// Add volume to the results if all the tags required match
+		if tagsmatch == true {
 			voldata := ProviderAwsEbsVolume{}
 			voldata.volumeId = string(*volume.VolumeId)
 			voldata.volumeName = string(tagsdict["Name"])
