@@ -16,7 +16,7 @@ import (
 	"github.com/gookit/slog"
 )
 
-const progversion = "0.1.0"
+const progversion = "0.1.1-dev"
 
 const (
 	ExitStatusSuccessfulExecution  = 0
@@ -29,10 +29,6 @@ func main() {
 	var jobnames []string
 	errcount := 0
 	jobcount := 0
-
-	// Initialise configuration mappings
-	configGlobal = make(map[string]string)
-	configJobs = make(map[string]interface{})
 
 	// Process options specified on the command line
 	configfile := flag.String("c", "", "path to the yaml configuration file")
@@ -65,7 +61,8 @@ func main() {
 	}
 
 	// Configure the logging library
-	switch configGlobal["loglevel"] {
+	loglevel := progconfig.Global["loglevel"]
+	switch loglevel {
 	case "error":
 		slog.SetLogLevel(slog.ErrorLevel)
 		logfmt.SetTemplate(logfmtTemplateShort)
@@ -79,23 +76,22 @@ func main() {
 		slog.SetLogLevel(slog.DebugLevel)
 		logfmt.SetTemplate(logfmtTemplateDebug)
 	default:
-		slog.Errorf("Invalid loglevel in configuration: \"%s\"", configGlobal["loglevel"])
+		slog.Errorf("Invalid loglevel in configuration: \"%s\"", loglevel)
 		os.Exit(ExitStatusInvalidConfiguration)
 	}
 
 	// Create list of jobs sorted alphabetically
-	for jobname, _ := range configJobs {
+	for jobname, _ := range jobmetadefs {
 		jobnames = append(jobnames, jobname)
 	}
 	sort.Strings(jobnames)
 
 	// Execute all jobs defined in the configuration
 	for _, jobname := range jobnames {
-		jobdata := configJobs[jobname]
-		jobconfig := jobdata.(map[string]string)
-		if jobconfig["enabled"] != "false" {
+		jobconfig := jobmetadefs[jobname]
+		if jobconfig.Enabled == true {
 			slog.Infof("Running job \"%s\" ...", jobname)
-			err = runJob(jobname, jobconfig)
+			err = runJob(jobname)
 			if err != nil {
 				errcount++
 				slog.Errorf("Failed to execute job \"%s\": %v", jobname, err)

@@ -11,7 +11,7 @@ import (
 )
 
 type BackupModule interface {
-	LoadConfiguration(config map[string]string) error
+	LoadConfiguration(jobname string) error
 	InitialiseModule() error
 	CreateBackup() error
 	ListBackups() ([]BackupItem, error)
@@ -24,20 +24,25 @@ type BackupItem struct {
 	timestamp   int64
 }
 
-func runJob(jobname string, jobconfig map[string]string) error {
+func runJob(jobname string) error {
 
 	var err error
 	var module BackupModule
 
-	switch jobconfig["module"] {
+	jobconf, ok := jobmetadefs[jobname]
+	if ok == false {
+		return fmt.Errorf("configuration for job \"%s\" not found in the map", jobname)
+	}
+
+	switch jobconf.Module {
 	case "ebs-snapshot":
 		module = &backup_ebs_snapshot{}
 	default:
-		return fmt.Errorf("invalid type of backup module: \"%s\"", jobconfig["module"])
+		return fmt.Errorf("invalid type of backup module: \"%s\"", jobconf.Module)
 	}
 
 	// Load backup job configuration
-	err = module.LoadConfiguration(jobconfig)
+	err = module.LoadConfiguration(jobname)
 	if err != nil {
 		return fmt.Errorf("%w", err)
 	}
