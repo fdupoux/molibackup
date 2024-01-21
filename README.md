@@ -6,9 +6,16 @@ backup utility, hence it should be able to run on all major paltforms and archit
 
 In the current version, this program provides features for creating and managing
 snapshots of EBS volumes in AWS (Amazon Web Services). It is able to find all
-volumes attached to either one specific instance or all instances which have a
-particular tag, create a snapshot of each volume, and then delete snapshots of
+volumes attached to either one specific instance or all instances which have
+particular tags, create a snapshot of each volume, and then delete snapshots of
 these volumes after a retention period.
+
+## Documentation
+The documentation for this program, and the configuration details in particular are
+subject to change over time. Please make sure you are reading the version of the
+documentation that corresponds to the version of the program you are using. You can
+find the documentation for any version of this program by accessing tagged versions
+of the documentation files in the git repository: https://github.com/fdupoux/molibackup
 
 ## Installation
 This program is stateless, it does not require any database or state file to track
@@ -179,20 +186,24 @@ jobs:
       aws_region: "us-west-2"
       accesskey_id: "MyAccessKeyId"
       accesskey_secret: "MyAccessKeySecret"
-      instance_tag: "Molibackup_enabled=true"
-      volume_tag: "Molibackup_enabled=true"
+      instance_tags:
+        Molibackup_enabled: "true"
+        Environment: "production"
+      volume_tags:
+        Molibackup_enabled: "true"
 ```
 
 The `aws_region` attribute is mandatory. The AWS Access Key pair details are required
 unless you run the program on an EC2 instance which is attached to an IAM role which
 has sufficient privileges to perform all the actions.
 
-The `instance_id`, `instance_tag` and `volume_tag` attributes are optional. They are used
-to restrict the scope of the job. For example you can use `instance_tag: "Molibackup_enabled=true"`
-so the program resctrits the backup to instances which have a tag named `Molibackup_enabled`
-and a value set to `true`. The tags are case sensitive so please make sure the values in
-the configuration matches the case of the actual tags you have created on your instances
-and volumes.
+The `instance_id`, `instance_tags` and `volume_tags` attributes are optional. They are used
+to restrict the scope of the job. For example you can specify one or multiple tags using
+`instance_tags` so the program resctrits the backup to instances for which all tags specified
+match. The same principle applies to `volume_tags` which allows you to select which volumes
+must be included in the scope of the job. The tags are case sensitive so please make sure
+the values in the configuration matches the case of the actual tags you have created on
+your instances and volumes.
 
 The `retention` option speficies the retention period expressed in days. For example if
 you set `retention: 90` it will delete snapshots which were created more than 90 days ago.
@@ -210,12 +221,12 @@ or you can use the special keyword `local` so the program uses the instance meta
 automatically detects the ID of the instance where it is running.
 
 Alternatively you can configure this program to create backups of multiple EC2 instances.
-In that case you should use the `instance_tag` attribute instead of `instance_id`. You will
-have to create a tag on all EC2 instance that needs to be backed up so the program can
+In that case you should use the `instance_tags` attribute instead of `instance_id`. You will
+have to create tags on all EC2 instance that needs to be backed up so the program can
 determine which instances must be included in the scope of the backup job. By default the
 program will create snapshots of all EBS volumes which are attached to these EC2 instances.
 If you want to control which EBS volumes must be included in the backup job, you should
-create a tag on all EBS volumes that you want to be backed up and use the `volume_tag`
+create tags on all EBS volumes that you want to be backed up and use the `volume_tags`
 attribute in the job configuration to tell the program which volumes must be included.
 Please refer to the configuration section above for specific examples.
 
@@ -224,8 +235,8 @@ The program creates and rotates snapshots of EBS volumes which meet the conditio
 specified in the jobs configurations.
 
 First it finds all EC2 instances that meet the conditions configured using `instance_id`
-and/or `instance_tag`. Then it finds all EBS volumes which are attached to these EC2
-instances and which meet the volume tags specified with `volume_tag` if this option is
+and/or `instance_tags`. Then it finds all EBS volumes which are attached to these EC2
+instances and which meet the volume tags specified with `volume_tags` if this option is
 present.
 
 After it has found a list of all volumes that are included in the scope of the backup job,

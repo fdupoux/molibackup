@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/gookit/slog"
@@ -29,8 +28,8 @@ type JobConfigEbsSnapshot struct {
 	AccessKeyId     string `koanf:"accesskey_id"`
 	AccessKeySecret string `koanf:"accesskey_secret"`
 	InstanceId      string `koanf:"instance_id"`
-	InstanceTag     string `koanf:"instance_tag"`
-	VolumeTag       string `koanf:"volume_tag"`
+	InstanceTags    any    `koanf:"instance_tags"`
+	VolumeTags      any    `koanf:"volume_tags"`
 }
 
 type backup_ebs_snapshot struct {
@@ -96,15 +95,15 @@ var validateConfigJobdef = []ConfigEntryValidation{
 		allowedval: nil,
 	},
 	{
-		entryname:  "instance_tag",
-		entrytype:  "string",
+		entryname:  "instance_tags",
+		entrytype:  "",
 		mandatory:  false,
 		defaultval: "",
 		allowedval: nil,
 	},
 	{
-		entryname:  "volume_tag",
-		entrytype:  "string",
+		entryname:  "volume_tags",
+		entrytype:  "",
 		mandatory:  false,
 		defaultval: "",
 		allowedval: nil,
@@ -134,8 +133,8 @@ func (b *backup_ebs_snapshot) LoadConfiguration(jobname string) error {
 	slog.Debugf("- AccessKeyId=\"%v\"", origconf.AccessKeyId)
 	slog.Debugf("- AccessKeySecret=\"%v\"", origconf.AccessKeySecret)
 	slog.Debugf("- InstanceId=\"%v\"", origconf.InstanceId)
-	slog.Debugf("- InstanceTag=\"%v\"", origconf.InstanceTag)
-	slog.Debugf("- VolumeTag=\"%v\"", origconf.VolumeTag)
+	slog.Debugf("- InstanceTags=\"%v\"", origconf.InstanceTags)
+	slog.Debugf("- VolumeTags=\"%v\"", origconf.VolumeTags)
 
 	slog.Debugf("Validating the job configuration and setting default values ...")
 
@@ -158,20 +157,6 @@ func (b *backup_ebs_snapshot) LoadConfiguration(jobname string) error {
 		}
 	}
 
-	if b.config.InstanceTag != "" {
-		matched, _ := regexp.MatchString("^[A-Za-z0-9_-]+=[A-Za-z0-9_-]+$", b.config.InstanceTag)
-		if matched == false {
-			return fmt.Errorf("Option \"instance_tag\" must be in the \"TagName=TagValue\" format")
-		}
-	}
-
-	if b.config.VolumeTag != "" {
-		matched, _ := regexp.MatchString("^[A-Za-z0-9_-]+=[A-Za-z0-9_-]+$", b.config.VolumeTag)
-		if matched == false {
-			return fmt.Errorf("Option \"volume_tag\" must be in the \"TagName=TagValue\" format")
-		}
-	}
-
 	if b.config.Retention <= 0 {
 		return fmt.Errorf("Option \"retention\" must be a valid number greater than 0")
 	}
@@ -185,8 +170,8 @@ func (b *backup_ebs_snapshot) LoadConfiguration(jobname string) error {
 	slog.Debugf("- AccessKeyId=\"%v\"", b.config.AccessKeyId)
 	slog.Debugf("- AccessKeySecret=\"%v\"", b.config.AccessKeySecret)
 	slog.Debugf("- InstanceId=\"%v\"", b.config.InstanceId)
-	slog.Debugf("- InstanceTag=\"%v\"", b.config.InstanceTag)
-	slog.Debugf("- VolumeTag=\"%v\"", b.config.VolumeTag)
+	slog.Debugf("- InstanceTags=\"%v\"", origconf.InstanceTags)
+	slog.Debugf("- VolumeTags=\"%v\"", b.config.VolumeTags)
 
 	return nil
 }
@@ -225,31 +210,32 @@ func (b *backup_ebs_snapshot) InitialiseModule() error {
 
 func (b *backup_ebs_snapshot) findRelevantVolumes() error {
 	var results []ProviderAwsEbsVolume
-	var insttagkey, insttagval string
-	var voltagkey, voltagval string
+	instags := make(map[string]string)
+	voltags := make(map[string]string)
 
-	// Parse "instance_tag" option
-	if b.config.InstanceTag != "" {
-		insttag := strings.Split(b.config.InstanceTag, "=")
-		if len(insttag) == 2 {
-			insttagkey = insttag[0]
-			insttagval = insttag[1]
+	// Parse "instance_tags" option
+	if b.config.InstanceTags != "" {
+		tags, ok := b.config.InstanceTags.(map[string]any)
+		if ok == true {
+			for key, val := range tags {
+				instags[key] = fmt.Sprintf("%v", val)
+			}
 		}
 	}
 
-	// Parse "volume_tag" option
-	if b.config.VolumeTag != "" {
-		insttag := strings.Split(b.config.VolumeTag, "=")
-		if len(insttag) == 2 {
-			voltagkey = insttag[0]
-			voltagval = insttag[1]
+	// Parse "volume_tags" option
+	if b.config.VolumeTags != "" {
+		tags, ok := b.config.VolumeTags.(map[string]any)
+		if ok == true {
+			for key, val := range tags {
+				voltags[key] = fmt.Sprintf("%v", val)
+			}
 		}
 	}
 
 	// Get list of instances that match the conditions specified
-	slog.Debugf("Listing instances based on instance_id=\"%s\" and instance_tag_key=\"%s\" and instance_tag_val=\"%s\" ...",
-		b.config.InstanceId, insttagkey, insttagval)
-	instances, err := ProviderAwsGetEc2Instances(b.client, b.config.InstanceId, insttagkey, insttagval)
+	slog.Debugf("Listing instances based on instance_id=\"%s\" and instance_tags=\"%v\" ...", b.config.InstanceId, instags)
+	instances, err := ProviderAwsGetEc2Instances(b.client, b.config.InstanceId, instags)
 	if err != nil {
 		return fmt.Errorf("%w", err)
 	}
@@ -259,9 +245,8 @@ func (b *backup_ebs_snapshot) findRelevantVolumes() error {
 
 	// Go through each instance
 	for _, instance := range instances {
-		slog.Debugf("Found instance: instanceId=\"%s\" instanceName=\"%s\" ownerId=\"%s\"",
-			instance.instanceId, instance.instanceName, instance.instanceOwner)
-		volumes, err := ProviderAwsGetEbsVolumes(b.client, instance.instanceId, voltagkey, voltagval)
+		slog.Debugf("Listing volumes attached to instance \"%s\" with volume_tags=\"%v\" ...", instance.instanceId, voltags)
+		volumes, err := ProviderAwsGetEbsVolumes(b.client, instance.instanceId, voltags)
 		if err != nil {
 			return fmt.Errorf("%w", err)
 		}
