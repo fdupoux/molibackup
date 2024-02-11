@@ -127,7 +127,7 @@ func readConfiguration(configfile string) error {
 
 	// Parse job specific sections of the config
 	jobmetadefs = make(map[string]JobMetaConfig)
-	for jobname, _ := range progconfig.Jobsdef {
+	for jobname := range progconfig.Jobsdef {
 		var jobconf JobMetaConfig
 		cfgpath := fmt.Sprintf("jobs.%s", jobname)
 		if err = kconfig.Unmarshal(cfgpath, &jobconf); err != nil {
@@ -199,7 +199,7 @@ func configValidateAndSetDefaults(configpath string, validation []ConfigEntryVal
 	}
 
 	// Make sure all entries in the map are known entries
-	for key, _ := range configmap {
+	for key := range configmap {
 		if slices.Contains(knownEntries, key) == false {
 			return fmt.Errorf("entry \"%v\" is not a valid entry in this section of the configuration", key)
 		}

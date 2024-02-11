@@ -109,7 +109,7 @@ func ProviderAwsGetEc2Instances(client *ec2.Client, instanceId string, instanceT
 		filtcnt++
 	}
 
-	for tagkey, _ := range instanceTags {
+	for tagkey := range instanceTags {
 		curfilter := types.Filter{
 			Name:   aws.String("tag-key"),
 			Values: []string{tagkey},
