@@ -7,16 +7,19 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"fmt"
 	"os"
 	"runtime"
 	"sort"
+	"strings"
 
 	"github.com/gookit/slog"
 )
 
-const progversion = "0.1.1"
+//go:embed VERSION
+var progversion string
 
 const (
 	ExitStatusSuccessfulExecution  = 0
@@ -30,6 +33,8 @@ func main() {
 	errcount := 0
 	jobcount := 0
 
+	version := strings.TrimSpace(progversion)
+
 	// Process options specified on the command line
 	configfile := flag.String("c", "", "path to the yaml configuration file")
 	showversion := flag.Bool("v", false, "show program version and exit")
@@ -37,7 +42,7 @@ func main() {
 
 	// Show version number if requested
 	if *showversion {
-		fmt.Printf("molibackup version %s built with %s\n", progversion, runtime.Version())
+		fmt.Printf("molibackup version %s built with %s\n", version, runtime.Version())
 		os.Exit(ExitStatusSuccessfulExecution)
 	}
 
@@ -51,7 +56,7 @@ func main() {
 	slog.SetLogLevel(slog.InfoLevel)
 
 	// Print version number
-	slog.Infof("molibackup version %s built with %s starting ...", progversion, runtime.Version())
+	slog.Infof("molibackup version %s built with %s starting ...", version, runtime.Version())
 
 	// Read the configuration file
 	err := readConfiguration(*configfile)

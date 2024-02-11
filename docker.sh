@@ -8,7 +8,7 @@ echo "curdir=${curdir}"
 echo "repodir=${repodir}"
 
 # Docker options
-dockerimg="golang:1.20.13@sha256:21089a96ccaae78cc1efbbe04ae9c8daf408ec5cedcc9872a016e8249b4bb6f7"
+dockerimg="golang:1.21.6@sha256:efe985ec6ca642b035ea2896c7e975f0ec04063bcdb206bbff0d4e1c74ba3ff7"
 dockeropt="--rm -it --volume=${repodir}:/home --workdir=/home"
 
 # Reuse existing GOPATH directory if it exists
