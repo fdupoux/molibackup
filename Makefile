@@ -1,5 +1,5 @@
 SHELL = bash
-VERSION := $(shell sed -n -E 's/const\sprogversion\s=\s\"([0-9]+.[0-9]+.[0-9]+[0-9a-z-]{0,9})\"/\1/p' main.go)
+VERSION := $(file < VERSION)
 BUILDOPT := -trimpath -ldflags="-buildid= -w" -buildvcs=false
 
 run:
