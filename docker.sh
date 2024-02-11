@@ -18,4 +18,5 @@ then
 fi
 
 # Run go commands in the docker container
-docker run ${dockeropt} ${dockerimg} $@
+userid="$(id -u)"
+docker run ${dockeropt} ${dockerimg} bash -c "/usr/sbin/useradd --home-dir=/home --uid ${userid} user && su -c '$*' user"

@@ -86,7 +86,7 @@ func main() {
 	}
 
 	// Create list of jobs sorted alphabetically
-	for jobname, _ := range jobmetadefs {
+	for jobname := range jobmetadefs {
 		jobnames = append(jobnames, jobname)
 	}
 	sort.Strings(jobnames)
