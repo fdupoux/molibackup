@@ -30,6 +30,8 @@ type JobConfigEbsSnapshot struct {
 	InstanceId      string `koanf:"instance_id"`
 	InstanceTags    any    `koanf:"instance_tags"`
 	VolumeTags      any    `koanf:"volume_tags"`
+	LockMode        string `koanf:"lock_mode"`
+	LockDuration    int32  `koanf:"lock_duration"`
 }
 
 type backup_ebs_snapshot struct {
@@ -108,6 +110,20 @@ var validateConfigJobdef = []ConfigEntryValidation{
 		defaultval: "",
 		allowedval: nil,
 	},
+	{
+		entryname:  "lock_mode",
+		entrytype:  "string",
+		mandatory:  false,
+		defaultval: "",
+		allowedval: []string{"compliance", "governance"},
+	},
+	{
+		entryname:  "lock_duration",
+		entrytype:  "int",
+		mandatory:  false,
+		defaultval: "7",
+		allowedval: nil,
+	},
 }
 
 func (b *backup_ebs_snapshot) LoadConfiguration(jobname string) error {
@@ -135,6 +151,8 @@ func (b *backup_ebs_snapshot) LoadConfiguration(jobname string) error {
 	slog.Debugf("- InstanceId=\"%v\"", origconf.InstanceId)
 	slog.Debugf("- InstanceTags=\"%v\"", origconf.InstanceTags)
 	slog.Debugf("- VolumeTags=\"%v\"", origconf.VolumeTags)
+	slog.Debugf("- LockMode=\"%v\"", origconf.LockMode)
+	slog.Debugf("- LockDuration=\"%v\"", origconf.LockDuration)
 
 	slog.Debugf("Validating the job configuration and setting default values ...")
 
@@ -172,6 +190,8 @@ func (b *backup_ebs_snapshot) LoadConfiguration(jobname string) error {
 	slog.Debugf("- InstanceId=\"%v\"", b.config.InstanceId)
 	slog.Debugf("- InstanceTags=\"%v\"", origconf.InstanceTags)
 	slog.Debugf("- VolumeTags=\"%v\"", b.config.VolumeTags)
+	slog.Debugf("- LockMode=\"%v\"", origconf.LockMode)
+	slog.Debugf("- LockDuration=\"%v\"", origconf.LockDuration)
 
 	return nil
 }
@@ -281,7 +301,7 @@ func (b *backup_ebs_snapshot) CreateBackup() error {
 		snapdate := fmt.Sprintf("%04d%02d%02d", curtime.Year(), curtime.Month(), curtime.Day())
 		snaptime := fmt.Sprintf("%v", curtime.Unix())
 		if b.config.DryRun == false {
-			snapshotId, err := ProviderAwsCreateEbsSnapshot(b.client, curvol.volumeId, snapname, snapdate, snaptime)
+			snapshotId, err := ProviderAwsCreateEbsSnapshot(b.client, curvol.volumeId, snapname, snapdate, snaptime, b.config.LockMode, b.config.LockDuration)
 			if err != nil {
 				return fmt.Errorf("%w", err)
 			}

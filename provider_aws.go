@@ -12,6 +12,8 @@ import (
 	"io"
 	"os"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -242,9 +244,9 @@ func ProviderAwsGetEbsSnapshots(client *ec2.Client, volumeId string) ([]Provider
 	return results, nil
 }
 
-func ProviderAwsCreateEbsSnapshot(client *ec2.Client, volumeId string, snapname string, snapdate string, snaptime string) (string, error) {
+func ProviderAwsCreateEbsSnapshot(client *ec2.Client, volumeId string, snapname string, snapdate string, snaptime string, lockmode string, lockduration int32) (string, error) {
 
-	params := &ec2.CreateSnapshotInput{
+	params1 := &ec2.CreateSnapshotInput{
 		VolumeId:    &volumeId,
 		Description: &snapname,
 		TagSpecifications: []types.TagSpecification{
@@ -272,12 +274,29 @@ func ProviderAwsCreateEbsSnapshot(client *ec2.Client, volumeId string, snapname 
 		},
 	}
 
-	result, err := client.CreateSnapshot(context.TODO(), params)
+	// Create snapshot of the volume
+	result, err := client.CreateSnapshot(context.TODO(), params1)
 	if err != nil {
 		return "", fmt.Errorf("CreateSnapshot() has failed for volume %s: %v", volumeId, err)
 	}
+	snapid := *result.SnapshotId
 
-	return *result.SnapshotId, nil
+	// Lock the new snapshot is this has been requested
+	curmode := types.LockMode(lockmode)
+	lockmodes := curmode.Values()
+	if slices.Contains(lockmodes, curmode) {
+		params2 := &ec2.LockSnapshotInput{
+			SnapshotId:   &snapid,
+			LockMode:     curmode,
+			LockDuration: &lockduration,
+		}
+
+		if _, err := client.LockSnapshot(context.TODO(), params2); err != nil {
+			return snapid, fmt.Errorf("LockSnapshot() has failed for snapshot %s: %v", snapid, err)
+		}
+	}
+
+	return snapid, nil
 }
 
 func ProviderAwsDeleteEbsSnapshot(client *ec2.Client, snapshotId string) error {

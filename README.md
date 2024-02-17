@@ -175,8 +175,6 @@ jobs:
       dryrun: false
       retention: 60
       aws_region: "us-west-2"
-      accesskey_id: "MyAccessKeyId"
-      accesskey_secret: "MyAccessKeySecret"
       instance_id: "local"
     myjob03:
       module: ebs-snapshot
@@ -191,6 +189,8 @@ jobs:
         Environment: "production"
       volume_tags:
         Molibackup_enabled: "true"
+      lock_mode: "governance"
+      lock_duration: 7
 ```
 
 The `aws_region` attribute is mandatory. The AWS Access Key pair details are required
@@ -208,6 +208,11 @@ your instances and volumes.
 The `retention` option speficies the retention period expressed in days. For example if
 you set `retention: 90` it will delete snapshots which were created more than 90 days ago.
 If you do not specify the `retention` attribute, it will use 30 days as the default value.
+
+The `lock_mode` and `lock_duration` attributes are optional. They allow you to lock an EBS
+snapshot for a duration express in days in order to prevent accidental or malicious deletion
+of snapshots during this period. You should set `lock_mode` to either `governance` or
+`compliance` if you want to lock your snapshots.
 
 ### Strategies
 You can either install this program to run on each EC2 instances that needs to be backed up,
@@ -253,6 +258,7 @@ to it via an instance profile. The IAM Role you are using requires the following
 so the program is able to run successfully:
 ```
 ec2:CreateSnapshot
+ec2:LockSnapshot
 ec2:CreateTags
 ec2:DeleteSnapshot
 ec2:DescribeInstances
