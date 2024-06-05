@@ -13,7 +13,7 @@ vet:
 	go vet
 
 clean:
-	rm -rf molibackup molibackup-*
+	rm -rf .cache molibackup molibackup-*
 
 goinfo:
 	go version
