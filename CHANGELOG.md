@@ -1,6 +1,6 @@
 # ChangeLog
 
-## 0.1.2 (unreleased):
+## 0.1.2 (2025-12-24):
 
 * Support for locking EBS snapshots to prevent accidental or malicious deletions
 
