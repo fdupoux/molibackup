@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/usr/bin/env bash
 
 # Determine path to the project
 fullpath="$(realpath $0)"
@@ -8,7 +8,7 @@ echo "curdir=${curdir}"
 echo "repodir=${repodir}"
 
 # Docker options
-dockerimg="golang:1.22.4@sha256:969349b8121a56d51c74f4c273ab974c15b3a8ae246a5cffc1df7d28b66cf978"
+dockerimg="golang:1.25.5@sha256:36b4f45d2874905b9e8573b783292629bcb346d0a70d8d7150b6df545234818f"
 dockeropt="--rm -it --volume=${repodir}:/home --workdir=/home"
 
 # Reuse existing GOPATH directory if it exists
